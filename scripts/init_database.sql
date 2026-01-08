@@ -15,9 +15,11 @@ WARNING:
 
 USE master;
 GO
-  
+
 -- Drop and recreate the 'data_warehouse' database
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = 'data_warehouse')
+IF EXISTS (SELECT 1
+FROM sys.databases
+WHERE name = 'data_warehouse')
 BEGIN
     ALTER DATABASE data_warehouse SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
     DROP DATABASE data_warehouse;
@@ -40,5 +42,3 @@ GO
 
 CREATE SCHEMA gold;
 GO
-
-SELECT 'Database and Schemas created successfully.' AS Message;

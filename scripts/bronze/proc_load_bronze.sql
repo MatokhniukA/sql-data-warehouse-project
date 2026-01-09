@@ -17,7 +17,7 @@ Usage Example:
 ===============================================================================
 */
 
-/* Before inserting the data I made copies all neded CSV files from the local machine 
+/* Before inserting the data I made copies all needed CSV files from the local machine 
 to the my Docker container using the following command: 
 docker cp <local_file_path> <container_id>:/<container_file_path>
 Example: 

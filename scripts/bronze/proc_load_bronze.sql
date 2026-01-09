@@ -17,11 +17,13 @@ Usage Example:
 ===============================================================================
 */
 
-/* Before inserting the data I made copies all neded CSV files from the local machine to the my Docker container using the following command: 
+/* Before inserting the data I made copies all neded CSV files from the local machine 
+to the my Docker container using the following command: 
 docker cp <local_file_path> <container_id>:/<container_file_path>
 Example: 
 docker cp ./cust_info.csv 123abc456def:/cust_info.csv
-I knew the <container id> by running the command 'docker container ls' and opened my folder with CSV files in my terminal using command cd ./<path_to_your_folder>
+I knew the <container id> by running the command 'docker container ls' and opened my folder 
+with CSV files in my terminal using command cd ./<path_to_your_folder>
 */
 
 USE data_warehouse;

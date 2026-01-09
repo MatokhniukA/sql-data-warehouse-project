@@ -170,37 +170,3 @@ GO
 
 EXEC bronze.load_bronze;
 GO
-
-/* Chechking the quality of loaded data
-   1. Check that the data have not shifted and are in the correct columns.
-   2. Count loaded data in the table and compare with the data in the csv file. */
-
--- SELECT *
--- FROM bronze.crm_cust_info;
--- SELECT COUNT(*)
--- FROM bronze.crm_cust_info;
-
--- SELECT *
--- FROM bronze.crm_prd_info;
--- SELECT COUNT(*)
--- FROM bronze.crm_prd_info;
-
--- SELECT *
--- FROM bronze.crm_sales_details;
--- SELECT COUNT(*)
--- FROM bronze.crm_sales_details;
-
--- SELECT *
--- FROM bronze.erp_cust_az12;
--- SELECT COUNT(*)
--- FROM bronze.erp_cust_az12;
-
--- SELECT *
--- FROM bronze.erp_loc_a101;
--- SELECT COUNT(*)
--- FROM bronze.erp_loc_a101;
-
--- SELECT *
--- FROM bronze.erp_px_cat_g1v2;
--- SELECT COUNT(*)
--- FROM bronze.erp_px_cat_g1v2;

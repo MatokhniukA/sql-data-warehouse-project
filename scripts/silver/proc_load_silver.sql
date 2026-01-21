@@ -15,7 +15,7 @@ INSERT INTO silver.crm_cust_info
     )
 SELECT cst_id,
     cst_key,
-    -- Data Transformation: Trim Unwanted Spaces in String Values
+    -- Data Transformation: Remove Unwanted Spaces in String Values
     TRIM(cst_firstname) AS cst_firstname,
     TRIM(cst_lastname) AS cst_lastname,
     -- Data Transformation: Data Standardization & Consistency (Store Clear and Meaningful Values Rather than Using Abbraviated Terms)
@@ -57,18 +57,18 @@ INSERT INTO silver.crm_prd_info
     prd_end_dt
     )
 SELECT prd_id,
-    -- prd_key is Split into 2 Informations and Deriving 2 New Columns (cat_id and prd_key)
-    REPLACE(SUBSTRING(prd_key, 1, 5), '-', '_') AS cat_id,
+    -- 'prd_key' is Split into 2 Informations and Deriving 2 New Columns ('cat_id' and 'prd_key')
+    REPLACE(SUBSTRING(prd_key, 1, 5), '-', '_') AS cat_id, -- Extract category ID
     /* There Is a Column 'id' in the Table 'erp_px_cat_g1v2' That Matches the 'cat_id' from the 'crm_prd_info' Table
     SELECT DISTINCT id
     FROM bronze.erp_px_cat_g1v2 */
-    SUBSTRING(prd_key, 7, LEN(prd_key)) AS prd_key,
+    SUBSTRING(prd_key, 7, LEN(prd_key)) AS prd_key, -- Extract product key
     /* There Is a Column 'sls_prd_key' in the Table 'crm_sales_details' That Matches the 'prd_key' from the 'crm_prd_info' Table
     SELECT sls_prd_key
     FROM bronze.crm_sales_details */
-    -- Data Transformation: Trim Unwanted Spaces in String Values
+    -- Data Transformation: Remove Unwanted Spaces in String Values
     TRIM(prd_nm) AS prd_nm,
-    -- Replaces NULL Values with '0' and Ensures No Negative Values Exist
+    -- Data Transformation: Replace NULL Values with '0' 
     ISNULL(prd_cost, 0) AS prd_cost,
     -- Data Transformation: Data Standardization & Consistency (Store Clear and Meaningful Values Rather than Using Abbraviated Terms)
     CASE UPPER(TRIM(prd_line))
@@ -77,9 +77,12 @@ SELECT prd_id,
         WHEN 'S' THEN 'Other Sales'
         WHEN 'T' THEN 'Touring'
         ELSE 'n/a' -- Handling missing values (NULLs)
-    END AS prd_line, -- Normalize product line values to readable format
+    END AS prd_line, -- Map product line codes to descriptive values
+    -- Data Transformation: Converting Data Type DATETIME to DATE and Ensuring Valid Date Orders
     CAST(prd_start_dt AS DATE) AS prd_start_dt,
+    -- Data Transformation: Calculate 'prd_end_dt' Based on the Next 'prd_start_dt' for the Same 'prd_key' 
     CAST(LEAD(prd_start_dt) OVER (PARTITION BY prd_key ORDER BY prd_start_dt) - 1 AS DATE) AS prd_end_dt
+-- Data Enrichment: Add new, relevant Data ('prd_end_dt') to Enhance the Dataset for Analysis
 FROM
     (
     -- Data Transformation: Remove Duplicates in Primary Key
@@ -99,3 +102,4 @@ WHERE cnt = 1;
 -- Quality Check: Verify Data Loaded into silver.crm_prd_info
 SELECT *
 FROM silver.crm_prd_info;
+

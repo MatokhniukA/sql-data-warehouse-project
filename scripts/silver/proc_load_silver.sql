@@ -103,3 +103,56 @@ WHERE cnt = 1;
 SELECT *
 FROM silver.crm_prd_info;
 
+
+-- CLEAN & LOAD crm_sales_details
+
+INSERT INTO silver.crm_sales_details
+    (
+    sls_ord_num,
+    sls_prd_key,
+    sls_cust_id,
+    sls_order_dt,
+    sls_ship_dt,
+    sls_due_dt,
+    sls_sales,
+    sls_quantity,
+    sls_price
+    )
+SELECT TRIM(sls_ord_num) AS sls_ord_num, -- Data Transformation: Remove Unwanted Spaces in String Values
+    sls_prd_key,
+    sls_cust_id,
+    -- Data Transformation: Replace Invalid Dates to NULL and Convert Integer Date to Proper Date Format
+    CASE WHEN sls_order_dt <= 0 OR LEN(sls_order_dt) != 8 THEN NULL
+        ELSE CAST(CAST(sls_order_dt AS VARCHAR) AS DATE) -- CAST first to VARCHAR because we cannot cast from INT to DATE directly in SQL Server. AND then - from VARCHAR to DATE
+    END AS sls_order_dt, -- Handle Invalid Dates 
+    CASE WHEN sls_ship_dt <= 0 OR LEN(sls_ship_dt) != 8 THEN NULL
+        ELSE CAST(CAST(sls_ship_dt AS VARCHAR) AS DATE) -- CAST first to VARCHAR because we cannot cast from INT to DATE directly in SQL Server. AND then - from VARCHAR to DATE
+    END AS sls_ship_dt, -- Handle Invalid Dates 
+    CASE WHEN sls_due_dt <= 0 OR LEN(sls_due_dt) != 8 THEN NULL
+        ELSE CAST(CAST(sls_due_dt AS VARCHAR) AS DATE) -- CAST first to VARCHAR because we cannot cast from INT to DATE directly in SQL Server. AND then - from VARCHAR to DATE
+    END AS sls_due_dt, -- Handle Invalid Dates 
+    -- Data Transformation: Recalculate sales if original value is NULL or incorrect
+    CASE WHEN sls_sales IS NULL OR sls_sales <= 0 OR sls_sales != sls_quantity * ABS(sls_price) -- ABS to handle negative prices
+        THEN sls_quantity * ABS(sls_price)
+        ELSE sls_sales
+    END AS sls_sales,
+    sls_quantity,
+    -- Data Transformation: Derive price if original value is NULL or incorrect
+    CASE WHEN sls_price IS NULL OR sls_price <= 0
+        THEN sls_sales / NULLIF(sls_quantity,0) -- NULLIF to avoid division by zero
+        ELSE sls_price
+    END AS sls_price
+FROM bronze.crm_sales_details;
+-- Connecting to another tables
+/* WHERE sls_prd_key NOT IN (
+    SELECT prd_key
+    FROM silver.crm_prd_info
+)
+    AND sls_cust_id NOT IN (
+    SELECT cst_id
+FROM silver.crm_cust_info
+) */
+
+-- Quality Check: Verify Data Loaded into silver.crm_sales_details
+SELECT *
+FROM silver.crm_sales_details;

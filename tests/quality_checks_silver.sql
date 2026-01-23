@@ -78,7 +78,8 @@ WHERE sls_ord_num != TRIM(sls_ord_num);
 
 -- Check connecting to another tables
 
--- Expectation: 'sls_prd_key' values from 'crm_sales_details' table exist in 'crm_prd_info' table with matching 'prd_key'. We compare 'bronze.crm_sales_details' and 'silver.crm_prd_info'
+-- Expectation: 'sls_prd_key' values from 'crm_sales_details' table exist in 'crm_prd_info' table with matching 'prd_key'. 
+-- We compare 'bronze.crm_sales_details' and 'silver.crm_prd_info'
 SELECT sls_prd_key
 FROM bronze.crm_sales_details
 WHERE sls_prd_key NOT IN (
@@ -86,7 +87,8 @@ WHERE sls_prd_key NOT IN (
 FROM silver.crm_prd_info
 )
 
--- Expectation: 'sls_cust_id' values from 'crm_sales_details' table exist in 'crm_cust_info' table with matching 'cst_id'. We compare 'bronze.crm_sales_details' and 'silver.crm_cust_info'
+-- Expectation: 'sls_cust_id' values from 'crm_sales_details' table exist in 'crm_cust_info' table with matching 'cst_id'. 
+-- We compare 'bronze.crm_sales_details' and 'silver.crm_cust_info'
 SELECT sls_cust_id
 FROM bronze.crm_sales_details
 WHERE sls_cust_id NOT IN (
@@ -97,13 +99,15 @@ FROM silver.crm_cust_info
 -- Check for Invalid Dates
 -- Expectation: No Results
 
--- In our dataset columns 'sls_order_dt', 'sls_ship_dt', 'sls_due_dt' are stored as INT and we need to check for invalid date values (e.g., Negative numbers or zeros that can't be CAST to a Date)
+-- In our dataset columns 'sls_order_dt', 'sls_ship_dt', 'sls_due_dt' are stored as INT and we need to check for invalid date values 
+-- Negative numbers or zeros that can't be CAST to a Date
 
 SELECT sls_order_dt,
     NULLIF(sls_order_dt, 0) AS sls_order_dt
 FROM bronze.crm_sales_details
 WHERE sls_order_dt <= 0 -- We have zeros in the data that's why we must Replace '0' into NULL
-    -- Our Integer data has the year's information at the start, then the month and the day at the end (YYYYMMDD format). In this scenario the LENGTH of the Integer should be 8 characters
+    -- Our Integer data has the year's information at the start, then the month and the day at the end (YYYYMMDD format). 
+    -- In this scenario the LENGTH of the Integer should be 8 characters
     OR LEN(sls_order_dt) != 8 -- We have values that not equal to 8 and we must to Replace these values into NULL with CASE statement
     -- Check for outliers by Validating the Boundaries of the date range (we expect the dates to be between '2000-01-01' and '2026-12-31')
     OR sls_order_dt > 20261231 -- no results
@@ -114,7 +118,8 @@ SELECT sls_ship_dt,
     NULLIF(sls_ship_dt, 0) AS sls_ship_dt
 FROM bronze.crm_sales_details
 WHERE sls_ship_dt <= 0 -- no results
-    -- Our Integer data has the year's information at the start, then the month and the day at the end (YYYYMMDD format). In this scenario the LENGTH of the Integer should be 8 characters
+    -- Our Integer data has the year's information at the start, then the month and the day at the end (YYYYMMDD format). 
+    -- In this scenario the LENGTH of the Integer should be 8 characters
     OR LEN(sls_ship_dt) != 8 -- no results
     -- Check for outliers by Validating the Boundaries of the date range (we expect the dates to be between '2000-01-01' and '2026-12-31')
     OR sls_ship_dt > 20261231 -- no results
@@ -125,7 +130,8 @@ SELECT sls_due_dt,
     NULLIF(sls_due_dt, 0) AS sls_due_dt
 FROM bronze.crm_sales_details
 WHERE sls_due_dt <= 0 -- no results
-    -- Our Integer data has the year's information at the start, then the month and the day at the end (YYYYMMDD format). In this scenario the LENGTH of the Integer should be 8 characters
+    -- Our Integer data has the year's information at the start, then the month and the day at the end (YYYYMMDD format). 
+    -- In this scenario the LENGTH of the Integer should be 8 characters
     OR LEN(sls_due_dt) != 8 -- no results
     -- Check for outliers by Validating the Boundaries of the date range (we expect the dates to be between '2000-01-01' and '2026-12-31')
     OR sls_due_dt > 20261231 -- no results
@@ -161,4 +167,73 @@ WHERE sls_sales != sls_quantity * sls_price
 ORDER BY sls_sales, sls_quantity, sls_price;
 
 
--- 
+-- CLEAN & LOAD erp_cust_az12
+
+-- Check connection between 'cid' from 'erp_cust_az12' and 'cst_key' from 'crm_cust_info' table
+-- Expectation: 'cid' values from 'erp_cust_az12' table exist in 'crm_cust_info' table with matching 'cst_key'
+SELECT cid,
+    CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid)) -- Remove 'NAS' Prefix from 'cid'
+        ELSE cid
+    END AS cid
+FROM bronze.erp_cust_az12
+WHERE CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid)) 
+        ELSE cid
+    END NOT IN (
+        SELECT DISTINCT cst_key
+FROM silver.crm_cust_info);
+
+-- Identify Out-of-Range Birth Dates
+-- Expectation: No Results
+SELECT bdate
+FROM bronze.erp_cust_az12
+WHERE bdate < '1926-01-01' OR bdate > GETDATE()
+ORDER BY bdate;
+
+-- Data Standardization & Consistency
+
+/* Inside the value of the 'gen' field there is a hidden string carry symbol.  
+Arrow ↵ means newline character.
+Arrow ↵ in grid VS Code = Carriage Return / Line Feed, that is:
+CHAR(13) → CR
+CHAR(10) → LF */
+SELECT DISTINCT gen,
+    CASE WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('F', 'FEMALE')
+        THEN 'Female'
+        WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('M', 'MALE')
+        THEN 'Male'
+        ELSE 'n/a'
+    END AS gen,
+    LEN(TRIM(REPLACE(gen, CHAR(13), ''))) AS gen_trimmed_length
+FROM bronze.erp_cust_az12;
+
+-- Researching which numerical code the symbol will turn into using UNICODE()
+/* This query takes each unique value of 'gen', extracts the last character, and shows its numeric code to find hidden characters like 'CR' CHAR(13), 'LF' CHAR(10), spaces, or 'NBSP' CHAR(160) */
+SELECT
+    DISTINCT gen,
+    UNICODE(SUBSTRING(gen, LEN(gen), 1)) AS last_char_code
+FROM bronze.erp_cust_az12;
+
+/* CHAR(13) - the Carriage Return (CR) character. Its primary function is to move the cursor to the beginning of the current line without advancing to the next line (macOS)
+CHAR(10) - the Line Feed (LF) character. Its primary function is to move the cursor down one line without returning to the beginning of the line. 
+These two characters are commonly used in combination to signify a new line, but usage varies by operating system.  */
+
+SELECT DISTINCT gen,
+    LEN(gen) AS gen_length,
+    REPLACE(gen, CHAR(13), '') AS gen_no_cr,
+    LEN(REPLACE(gen, CHAR(13), '')) AS gen_no_cr_length,
+    TRIM(REPLACE(gen, CHAR(13), '')) AS gen_trimmed,
+    LEN(TRIM(REPLACE(gen, CHAR(13), ''))) AS gen_trimmed_length
+FROM bronze.erp_cust_az12;
+
+-- REPLACE Below is NOT working
+/* SELECT DISTINCT gen, LEN(gen) AS gen_length,
+    REPLACE(gen, '\n', '') AS gen_no_cr, 
+    LEN(REPLACE(gen, '\n', '')) AS gen_no_cr_length, 
+    TRIM(REPLACE(gen, '\n', '')) AS gen_trimmed, 
+    LEN(TRIM(REPLACE(gen, '\n', ''))) AS gen_trimmed_length
+FROM bronze.erp_cust_az12; */
+
+/* \n — LF (Line Feed) — goes to a new line (Linux/macOS)
+\r — CR (Carriage Return) - returns the cursor to the beginning of the line, but does not switch to a new one
+\r\n — CRLF (Carriage Return + Line Feed) — returns the cursor and goes to a new line (Windows) */
+

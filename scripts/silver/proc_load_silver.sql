@@ -74,7 +74,7 @@ SELECT prd_id,
     CASE UPPER(TRIM(prd_line))
         WHEN 'M' THEN 'Mountain'
         WHEN 'R' THEN 'Road'
-        WHEN 'S' THEN 'Other Sales'
+        WHEN 'S' THEN 'Standard'
         WHEN 'T' THEN 'Touring'
         ELSE 'n/a' -- Handling missing values (NULLs)
     END AS prd_line, -- Map product line codes to descriptive values
@@ -156,3 +156,32 @@ FROM silver.crm_cust_info
 -- Quality Check: Verify Data Loaded into silver.crm_sales_details
 SELECT *
 FROM silver.crm_sales_details;
+
+
+-- CLEAN & LOAD erp_cust_az12
+
+INSERT INTO silver.erp_cust_az12
+    (
+    cid,
+    bdate,
+    gen
+    )
+SELECT CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid)) -- Remove 'NAS' Prefix from 'cid'
+        ELSE cid
+    END AS cid,
+    CASE WHEN bdate > GETDATE() THEN NULL 
+    ELSE bdate 
+    END AS bdate, -- Set Future Birth Dates to NULL
+    -- Data Transformation: Data Standardization & Consistency (Store Clear and Meaningful Values Rather than Using Abbraviated Terms)
+    CASE WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('F', 'FEMALE') -- Handle a Hidden String Carry Symbol (newline character CHAR(13))
+        THEN 'Female'
+        WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('M', 'MALE') -- Handle a Hidden String Carry Symbol (newline character CHAR(13))
+        THEN 'Male'
+        ELSE 'n/a' -- Handling missing and unknown values
+    END AS gen
+-- Normalize gender values to readable format
+FROM bronze.erp_cust_az12;
+
+-- Quality Check: Verify Data Loaded into silver.erp_cust_az12
+SELECT *
+FROM silver.erp_cust_az12;

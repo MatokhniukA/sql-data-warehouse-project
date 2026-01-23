@@ -207,7 +207,8 @@ SELECT DISTINCT gen,
 FROM bronze.erp_cust_az12;
 
 -- Researching which numerical code the symbol will turn into using UNICODE()
-/* This query takes each unique value of 'gen', extracts the last character, and shows its numeric code to find hidden characters like 'CR' CHAR(13), 'LF' CHAR(10), spaces, or 'NBSP' CHAR(160) */
+/* This query takes each unique value of 'gen', extracts the last character, and shows its numeric code to find hidden characters like 
+'CR' CHAR(13), 'LF' CHAR(10), spaces, or 'NBSP' CHAR(160) */
 SELECT
     DISTINCT gen,
     UNICODE(SUBSTRING(gen, LEN(gen), 1)) AS last_char_code

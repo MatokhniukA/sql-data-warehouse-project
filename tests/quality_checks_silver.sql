@@ -1,9 +1,30 @@
+/*
+===============================================================================
+Quality Checks
+===============================================================================
+Script Purpose:
+    This script performs various quality checks for data consistency, accuracy, 
+    and standardization across the 'silver' layer. It includes checks for:
+    - Null or duplicate primary keys.
+    - Unwanted spaces in string fields.
+    - Data standardization and consistency.
+    - Invalid date ranges and orders.
+    - Data consistency between related fields.
+
+Usage Notes:
+    - Run these checks after data loading Silver Layer.
+    - Investigate and resolve any discrepancies found during the checks.
+===============================================================================
+*/
+
 USE data_warehouse;
 GO
 
--- CLEAN & LOAD crm_cust_info
+-- ====================================================================
+-- Checking 'bronze.crm_cust_info' Before Inserting Data Into 'silver.crm_cust_info'
+-- ====================================================================
 
--- Check for Null or Duplicates in Primary Key
+-- Check for NULLs or Duplicates in Primary Key
 -- Expectation: No Results
 SELECT cst_id, COUNT(*) AS cnt
 FROM bronze.crm_cust_info
@@ -30,7 +51,9 @@ SELECT DISTINCT cst_marital_status
 FROM bronze.crm_cust_info;
 
 
--- CLEAN & LOAD crm_prd_info
+-- ====================================================================
+-- Checking 'bronze.crm_prd_info' Before Inserting Data Into 'silver.crm_prd_info'
+-- ====================================================================
 
 -- Check for Null or Duplicates in Primary Key
 -- Expectation: No Results
@@ -45,7 +68,7 @@ SELECT prd_nm
 FROM bronze.crm_prd_info
 WHERE prd_nm != TRIM(prd_nm);
 
--- Check for NULLs or Negative Values
+-- Check for NULLs or Negative Values in Cost
 -- Expectation: No Results
 SELECT prd_cost
 FROM bronze.crm_prd_info
@@ -55,14 +78,16 @@ WHERE prd_cost < 0 OR prd_cost IS NULL;
 SELECT DISTINCT prd_line
 FROM bronze.crm_prd_info;
 
--- Check for Invalid Date Orders
+-- Check for Invalid Date Orders (Start Date > End Date)
 -- Expectation: No Results
 SELECT *
 FROM bronze.crm_prd_info
 WHERE prd_start_dt > prd_end_dt;
 
 
--- CLEAN & LOAD crm_sales_details
+-- ====================================================================
+-- Checking 'bronze.crm_sales_details' Before Inserting Data Into 'silver.crm_sales_details'
+-- ====================================================================
 
 -- Check for Unwanted Spaces in String Values
 -- Expectation: No Results
@@ -71,7 +96,6 @@ FROM bronze.crm_sales_details
 WHERE sls_ord_num != TRIM(sls_ord_num);
 
 -- Check connecting to another tables
-
 -- Expectation: 'sls_prd_key' values from 'crm_sales_details' table exist in 'crm_prd_info' table with matching 'prd_key'. 
 -- We compare 'bronze.crm_sales_details' and 'silver.crm_prd_info'
 SELECT sls_prd_key
@@ -91,10 +115,10 @@ FROM silver.crm_cust_info
 )
 
 -- Check for Invalid Dates
--- Expectation: No Results
+-- Expectation: No Invalid Dates
 
 -- In our dataset columns 'sls_order_dt', 'sls_ship_dt', 'sls_due_dt' are stored as INT and we need to check for invalid date values 
--- Negative numbers or zeros that can't be CAST to a Date
+-- Negative numbers or zeros can't be CAST to a Date
 
 SELECT sls_order_dt,
     NULLIF(sls_order_dt, 0) AS sls_order_dt
@@ -132,7 +156,7 @@ WHERE sls_due_dt <= 0 -- no results
     OR sls_due_dt < 20000101;
 -- no results
 
--- Check for Invalid Dates Orders: 'sls_order_dt' must always be earlier than the 'sls_ship_dt' and 'sls_due_dt'
+-- Check for Invalid Dates Orders: 'sls_order_dt' must always be earlier than the 'sls_ship_dt' and 'sls_due_dt' (Order Date > Shipping/Due Dates)
 -- Expectation: No Results
 SELECT *
 FROM bronze.crm_sales_details
@@ -144,15 +168,17 @@ WHERE sls_order_dt > sls_ship_dt
 ->> Sales = Quantity * Price
 ->> Values must not be NULL, zero or negative */
 -- Expectation: No Results
-SELECT DISTINCT sls_sales AS old_sls_sales, sls_quantity, sls_price AS old_sls_price,
-    CASE WHEN sls_sales IS NULL OR sls_sales <= 0 OR sls_sales != sls_quantity * ABS(sls_price) -- ABS to handle negative prices
-        THEN sls_quantity * ABS(sls_price)
-        ELSE sls_sales
-    END AS sls_sales,
-    CASE WHEN sls_price IS NULL OR sls_price <= 0
-        THEN sls_sales / NULLIF(sls_quantity,0) -- NULLIF to avoid division by zero
-        ELSE sls_price
-    END AS sls_price
+SELECT DISTINCT sls_sales AS old_sls_sales,
+    sls_quantity,
+    sls_price AS old_sls_price
+-- , CASE WHEN sls_sales IS NULL OR sls_sales <= 0 OR sls_sales != sls_quantity * ABS(sls_price) -- ABS to handle negative prices
+--     THEN sls_quantity * ABS(sls_price)
+--     ELSE sls_sales
+-- END AS sls_sales,
+-- CASE WHEN sls_price IS NULL OR sls_price <= 0
+--     THEN sls_sales / NULLIF(sls_quantity,0) -- NULLIF to avoid division by zero
+--     ELSE sls_price
+-- END AS sls_price
 FROM bronze.crm_sales_details
 WHERE sls_sales != sls_quantity * sls_price
     OR sls_sales IS NULL OR sls_sales <= 0
@@ -161,12 +187,14 @@ WHERE sls_sales != sls_quantity * sls_price
 ORDER BY sls_sales, sls_quantity, sls_price;
 
 
--- CLEAN & LOAD erp_cust_az12
+-- ====================================================================
+-- Checking 'bronze.erp_cust_az12' Before Inserting Data Into 'silver.erp_cust_az12'
+-- ====================================================================
 
 -- Check connection between 'cid' from 'erp_cust_az12' and 'cst_key' from 'crm_cust_info' table
 -- Expectation: 'cid' values from 'erp_cust_az12' table exist in 'crm_cust_info' table with matching 'cst_key'
-SELECT cid,
-    CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid)) -- Remove 'NAS' Prefix from 'cid'
+SELECT cid
+    , CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid)) -- Remove 'NAS' Prefix from 'cid'
         ELSE cid
     END AS cid
 FROM bronze.erp_cust_az12
@@ -177,7 +205,7 @@ WHERE CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid))
 FROM silver.crm_cust_info);
 
 -- Identify Out-of-Range Birth Dates
--- Expectation: No Results
+-- Expectation: Birthdates between 1926-01-01 and Today
 SELECT bdate
 FROM bronze.erp_cust_az12
 WHERE bdate < '1926-01-01' OR bdate > GETDATE()
@@ -190,14 +218,14 @@ Arrow ↵ means newline character.
 Arrow ↵ in grid VS Code = Carriage Return / Line Feed, that is:
 CHAR(13) → CR
 CHAR(10) → LF */
-SELECT DISTINCT gen,
-    CASE WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('F', 'FEMALE')
-        THEN 'Female'
-        WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('M', 'MALE')
-        THEN 'Male'
-        ELSE 'n/a'
-    END AS gen,
-    LEN(TRIM(REPLACE(gen, CHAR(13), ''))) AS gen_trimmed_length
+SELECT DISTINCT gen
+-- , CASE WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('F', 'FEMALE')
+--     THEN 'Female'
+--     WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('M', 'MALE')
+--     THEN 'Male'
+--     ELSE 'n/a'
+-- END AS gen,
+-- LEN(TRIM(REPLACE(gen, CHAR(13), ''))) AS gen_trimmed_length
 FROM bronze.erp_cust_az12;
 
 -- Researching which numerical code the symbol will turn into using UNICODE()
@@ -233,7 +261,9 @@ FROM bronze.erp_cust_az12; */
 \r\n — CRLF (Carriage Return + Line Feed) — returns the cursor and goes to a new line (Windows) */
 
 
--- CLEAN & LOAD erp_loc_a101
+-- ====================================================================
+-- Checking 'bronze.erp_loc_a101' Before Inserting Data Into 'silver.erp_loc_a101'
+-- ====================================================================
 
 -- Check connection between 'cid' from 'erp_loc_a101' and 'cst_key' from 'crm_cust_info' table
 -- Expectation: 'cid' values from 'erp_loc_a101' table exist in 'crm_cust_info' table with matching 'cst_key'
@@ -251,12 +281,12 @@ Arrow ↵ means newline character.
 Arrow ↵ in grid VS Code = Carriage Return / Line Feed, that is:
 CHAR(13) → CR
 CHAR(10) → LF */
-SELECT DISTINCT cntry AS old_cntry,
-    CASE WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = 'DE' THEN 'Germany'
-    WHEN TRIM(REPLACE(cntry, CHAR(13), '')) IN ('US', 'USA') THEN 'United States'
-    WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = '' OR cntry IS NULL THEN 'n/a'
-    ELSE TRIM(REPLACE(cntry, CHAR(13), ''))
-    END AS cntry
+SELECT DISTINCT cntry AS old_cntry
+-- , CASE WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = 'DE' THEN 'Germany'
+-- WHEN TRIM(REPLACE(cntry, CHAR(13), '')) IN ('US', 'USA') THEN 'United States'
+-- WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = '' OR cntry IS NULL THEN 'n/a'
+-- ELSE TRIM(REPLACE(cntry, CHAR(13), ''))
+-- END AS cntry
 FROM bronze.erp_loc_a101
 ORDER BY cntry;
 
@@ -267,7 +297,9 @@ SELECT
 FROM bronze.erp_loc_a101;
 
 
--- CLEAN & LOAD erp_px_cat_g1v2
+-- ====================================================================
+-- Checking 'bronze.erp_px_cat_g1v2' Before Inserting Data Into 'silver.erp_px_cat_g1v2'
+-- ====================================================================
 
 -- Check connection between 'id' from 'bronze.erp_px_cat_g1v2' and 'cat_id' (a new column) from 'silver.crm_prd_info' table
 -- Expectation: 'id' values from 'bronze.erp_px_cat_g1v2' table exist in 'silver.crm_prd_info' table with matching 'cat_id'
@@ -278,6 +310,7 @@ SELECT cat_id
 FROM silver.crm_prd_info);
 
 -- Check for Unwanted Spaces
+-- Expectation: No Results
 SELECT cat,
     subcat,
     maintenance
@@ -302,8 +335,8 @@ Arrow ↵ means newline character.
 Arrow ↵ in grid VS Code = Carriage Return / Line Feed, that is:
 CHAR(13) → CR
 CHAR(10) → LF */
-SELECT DISTINCT maintenance AS old_maintenance,
-    TRIM(REPLACE(maintenance, CHAR(13), '')) AS maintenance
+SELECT DISTINCT maintenance AS old_maintenance
+-- , TRIM(REPLACE(maintenance, CHAR(13), '')) AS maintenance
 FROM bronze.erp_px_cat_g1v2
 ORDER BY maintenance;
 

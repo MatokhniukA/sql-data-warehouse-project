@@ -1,7 +1,7 @@
 /*
-===============================================================================
+================================================================================
 Quality Checks
-===============================================================================
+================================================================================
 Script Purpose:
     This script performs various quality checks for data consistency, accuracy, 
     and standardization across the 'silver' layer. It includes checks for:
@@ -14,15 +14,15 @@ Script Purpose:
 Usage Notes:
     - Run these checks after data loading Silver Layer.
     - Investigate and resolve any discrepancies found during the checks.
-===============================================================================
+================================================================================
 */
 
 USE data_warehouse;
 GO
 
--- ====================================================================
+-- =======================================================================================
 -- Checking 'bronze.crm_cust_info' Before Inserting Data Into 'silver.crm_cust_info'
--- ====================================================================
+-- =======================================================================================
 
 -- Check for NULLs or Duplicates in Primary Key
 -- Expectation: No Results
@@ -44,6 +44,7 @@ WHERE cst_firstname != TRIM(cst_firstname)
     OR cst_gndr != TRIM(cst_gndr);
 
 -- Data Standardization & Consistency
+
 SELECT DISTINCT cst_gndr
 FROM bronze.crm_cust_info;
 
@@ -51,9 +52,9 @@ SELECT DISTINCT cst_marital_status
 FROM bronze.crm_cust_info;
 
 
--- ====================================================================
+-- =======================================================================================
 -- Checking 'bronze.crm_prd_info' Before Inserting Data Into 'silver.crm_prd_info'
--- ====================================================================
+-- =======================================================================================
 
 -- Check for Null or Duplicates in Primary Key
 -- Expectation: No Results
@@ -85,9 +86,9 @@ FROM bronze.crm_prd_info
 WHERE prd_start_dt > prd_end_dt;
 
 
--- ====================================================================
+-- =======================================================================================
 -- Checking 'bronze.crm_sales_details' Before Inserting Data Into 'silver.crm_sales_details'
--- ====================================================================
+-- =======================================================================================
 
 -- Check for Unwanted Spaces in String Values
 -- Expectation: No Results
@@ -187,9 +188,9 @@ WHERE sls_sales != sls_quantity * sls_price
 ORDER BY sls_sales, sls_quantity, sls_price;
 
 
--- ====================================================================
+-- =======================================================================================
 -- Checking 'bronze.erp_cust_az12' Before Inserting Data Into 'silver.erp_cust_az12'
--- ====================================================================
+-- =======================================================================================
 
 -- Check connection between 'cid' from 'erp_cust_az12' and 'cst_key' from 'crm_cust_info' table
 -- Expectation: 'cid' values from 'erp_cust_az12' table exist in 'crm_cust_info' table with matching 'cst_key'
@@ -261,9 +262,9 @@ FROM bronze.erp_cust_az12; */
 \r\n — CRLF (Carriage Return + Line Feed) — returns the cursor and goes to a new line (Windows) */
 
 
--- ====================================================================
+-- =======================================================================================
 -- Checking 'bronze.erp_loc_a101' Before Inserting Data Into 'silver.erp_loc_a101'
--- ====================================================================
+-- =======================================================================================
 
 -- Check connection between 'cid' from 'erp_loc_a101' and 'cst_key' from 'crm_cust_info' table
 -- Expectation: 'cid' values from 'erp_loc_a101' table exist in 'crm_cust_info' table with matching 'cst_key'
@@ -297,9 +298,9 @@ SELECT
 FROM bronze.erp_loc_a101;
 
 
--- ====================================================================
+-- =======================================================================================
 -- Checking 'bronze.erp_px_cat_g1v2' Before Inserting Data Into 'silver.erp_px_cat_g1v2'
--- ====================================================================
+-- =======================================================================================
 
 -- Check connection between 'id' from 'bronze.erp_px_cat_g1v2' and 'cat_id' (a new column) from 'silver.crm_prd_info' table
 -- Expectation: 'id' values from 'bronze.erp_px_cat_g1v2' table exist in 'silver.crm_prd_info' table with matching 'cat_id'

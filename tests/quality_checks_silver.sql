@@ -238,3 +238,38 @@ FROM bronze.erp_cust_az12; */
 \r — CR (Carriage Return) - returns the cursor to the beginning of the line, but does not switch to a new one
 \r\n — CRLF (Carriage Return + Line Feed) — returns the cursor and goes to a new line (Windows) */
 
+
+-- CLEAN & LOAD erp_loc_a101
+
+-- Check connection between 'cid' from 'erp_loc_a101' and 'cst_key' from 'crm_cust_info' table
+-- Expectation: 'cid' values from 'erp_loc_a101' table exist in 'crm_cust_info' table with matching 'cst_key'
+SELECT cid,
+    TRIM(REPLACE(cid, '-', '')) as cid
+-- Remove '-' from 'cid'
+FROM bronze.erp_loc_a101
+WHERE TRIM(REPLACE(cid, '-', '')) NOT IN (SELECT cst_key
+FROM silver.crm_cust_info);
+
+-- Data Standardization & Consistency
+
+/* Inside the value of the 'cntry' field there is a hidden string carry symbol.  
+Arrow ↵ means newline character.
+Arrow ↵ in grid VS Code = Carriage Return / Line Feed, that is:
+CHAR(13) → CR
+CHAR(10) → LF */
+SELECT DISTINCT cntry AS old_cntry,
+    CASE WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = 'DE' THEN 'Germany'
+    WHEN TRIM(REPLACE(cntry, CHAR(13), '')) IN ('US', 'USA') THEN 'United States'
+    WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = '' OR cntry IS NULL THEN 'n/a'
+    ELSE TRIM(REPLACE(cntry, CHAR(13), ''))
+    END AS cntry
+FROM bronze.erp_loc_a101
+ORDER BY cntry;
+
+-- Researching which numerical code the symbol will turn into using UNICODE()
+SELECT
+    DISTINCT cntry,
+    UNICODE(SUBSTRING(cntry, LEN(cntry), 1)) AS last_char_code
+FROM bronze.erp_loc_a101;
+
+

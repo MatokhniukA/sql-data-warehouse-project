@@ -12,21 +12,15 @@ HAVING COUNT(*) > 1 OR cst_id IS NULL;
 
 -- Check for Unwanted Spaces in String Values
 -- Expectation: No Results
-SELECT cst_firstname
+SELECT cst_firstname,
+    cst_lastname,
+    cst_marital_status,
+    cst_gndr
 FROM bronze.crm_cust_info
-WHERE cst_firstname != TRIM(cst_firstname);
-
-SELECT cst_lastname
-FROM bronze.crm_cust_info
-WHERE cst_lastname != TRIM(cst_lastname);
-
-SELECT cst_marital_status
-FROM bronze.crm_cust_info
-WHERE cst_marital_status != TRIM(cst_marital_status);
-
-SELECT cst_gndr
-FROM bronze.crm_cust_info
-WHERE cst_gndr != TRIM(cst_gndr);
+WHERE cst_firstname != TRIM(cst_firstname)
+    OR cst_lastname != TRIM(cst_lastname)
+    OR cst_marital_status != TRIM(cst_marital_status)
+    OR cst_gndr != TRIM(cst_gndr);
 
 -- Data Standardization & Consistency
 SELECT DISTINCT cst_gndr
@@ -273,3 +267,48 @@ SELECT
 FROM bronze.erp_loc_a101;
 
 
+-- CLEAN & LOAD erp_px_cat_g1v2
+
+-- Check connection between 'id' from 'bronze.erp_px_cat_g1v2' and 'cat_id' (a new column) from 'silver.crm_prd_info' table
+-- Expectation: 'id' values from 'bronze.erp_px_cat_g1v2' table exist in 'silver.crm_prd_info' table with matching 'cat_id'
+SELECT id
+FROM bronze.erp_px_cat_g1v2
+WHERE id NOT IN (
+SELECT cat_id
+FROM silver.crm_prd_info);
+
+-- Check for Unwanted Spaces
+SELECT cat,
+    subcat,
+    maintenance
+FROM bronze.erp_px_cat_g1v2
+WHERE cat != TRIM(cat)
+    OR subcat != TRIM(subcat)
+    OR maintenance != TRIM(maintenance);
+
+-- Data Standardization & Consistency
+
+SELECT DISTINCT cat
+FROM bronze.erp_px_cat_g1v2;
+
+SELECT DISTINCT subcat
+FROM bronze.erp_px_cat_g1v2;
+
+SELECT DISTINCT maintenance
+FROM bronze.erp_px_cat_g1v2;
+
+/* Inside the value of the 'maintenance' field there is a hidden string carry symbol.  
+Arrow ↵ means newline character.
+Arrow ↵ in grid VS Code = Carriage Return / Line Feed, that is:
+CHAR(13) → CR
+CHAR(10) → LF */
+SELECT DISTINCT maintenance AS old_maintenance,
+    TRIM(REPLACE(maintenance, CHAR(13), '')) AS maintenance
+FROM bronze.erp_px_cat_g1v2
+ORDER BY maintenance;
+
+-- Researching which numerical code the symbol will turn into using UNICODE()
+SELECT
+    DISTINCT maintenance,
+    UNICODE(SUBSTRING(maintenance, LEN(maintenance), 1)) AS last_char_code
+FROM bronze.erp_px_cat_g1v2;

@@ -177,7 +177,7 @@ SELECT CASE WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LEN(cid)) -- Remove 'NAS
         THEN 'Female'
         WHEN UPPER(TRIM(REPLACE(gen, CHAR(13), ''))) IN ('M', 'MALE') -- Handle a Hidden String Carry Symbol (newline character CHAR(13))
         THEN 'Male'
-        ELSE 'n/a' -- Handling missing and unknown values
+        ELSE 'n/a' -- Handle missing and unknown values
     END AS gen
 -- Normalize gender values to readable format
 FROM bronze.erp_cust_az12;
@@ -185,3 +185,25 @@ FROM bronze.erp_cust_az12;
 -- Quality Check: Verify Data Loaded into silver.erp_cust_az12
 SELECT *
 FROM silver.erp_cust_az12;
+
+
+-- CLEAN & LOAD erp_loc_a101
+
+INSERT INTO silver.erp_loc_a101
+    (
+    cid,
+    cntry
+    )
+SELECT TRIM(REPLACE(cid, '-', '')) as cid, -- Remove '-' from 'cid'
+    -- Data Transformation: Data Standardization & Consistency (Store Clear and Meaningful Values Rather than Using Abbraviated Terms)
+    CASE WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = 'DE' THEN 'Germany' -- Handle a Hidden String Carry Symbol (newline character CHAR(13))
+    WHEN TRIM(REPLACE(cntry, CHAR(13), '')) IN ('US', 'USA') THEN 'United States' -- Handle a Hidden String Carry Symbol (newline character CHAR(13))
+    WHEN TRIM(REPLACE(cntry, CHAR(13), '')) = '' OR cntry IS NULL THEN 'n/a' -- Handle missing and unknown values
+    ELSE TRIM(REPLACE(cntry, CHAR(13), ''))
+    END AS cntry
+-- Normalize country values to readable format
+FROM bronze.erp_loc_a101;
+
+-- Quality Check: Verify Data Loaded into silver.erp_loc_a101
+SELECT *
+FROM silver.erp_loc_a101;

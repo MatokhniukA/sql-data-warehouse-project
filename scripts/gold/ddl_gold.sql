@@ -1,7 +1,29 @@
+/*
+===============================================================================
+DDL Script: Create Gold Views
+===============================================================================
+Script Purpose:
+    This script creates views for the Gold layer in the data warehouse. 
+    The Gold layer represents the final dimension and fact tables (Star Schema)
+
+    Each view performs transformations and combines data from the Silver layer 
+    to produce a clean, enriched, and business-ready dataset.
+
+Usage:
+    - These views can be queried directly for analytics and reporting.
+===============================================================================
+*/
+
 USE data_warehouse;
 GO
 
--- Dimension Customers
+-- =============================================================================
+-- Create Dimension: gold.dim_customers
+-- =============================================================================
+IF OBJECT_ID('gold.dim_customers', 'V') IS NOT NULL
+DROP VIEW gold.dim_customers;
+GO
+
 CREATE VIEW gold.dim_customers
 AS
     SELECT
@@ -12,7 +34,7 @@ AS
         ci.cst_lastname AS last_name,
         la.cntry AS country,
         ci.cst_marital_status AS marital_status,
-        CASE WHEN ci.cst_gndr != 'n/a' THEN ci.cst_gndr -- CRM is Master table for Gender Info
+        CASE WHEN ci.cst_gndr != 'n/a' THEN ci.cst_gndr -- CRM is Pimary Source for Gender Info
         ELSE COALESCE(ca.gen, 'n/a') -- Fallback to ERP data
         END AS gender,
         ca.bdate AS birthdate,
@@ -25,7 +47,13 @@ AS
 GO
 
 
--- Dimension Products
+-- =============================================================================
+-- Create Dimension: gold.dim_products
+-- =============================================================================
+IF OBJECT_ID('gold.dim_products', 'V') IS NOT NULL
+DROP VIEW gold.dim_products;
+GO
+
 CREATE VIEW gold.dim_products
 AS
     SELECT
@@ -43,12 +71,17 @@ AS
     FROM silver.crm_prd_info AS pi
         LEFT JOIN silver.erp_px_cat_g1v2 AS pc
         ON pi.cat_id = pc.id
-    WHERE pi.prd_end_dt IS NULL;
--- Filter out all historical data
+    WHERE pi.prd_end_dt IS NULL; -- Filter out all historical data
 GO
 
 
--- Fact Sales
+-- =============================================================================
+-- Create Dimension: gold.fact_sales
+-- =============================================================================
+IF OBJECT_ID('gold.fact_sales', 'V') IS NOT NULL
+DROP VIEW gold.fact_sales;
+GO
+
 CREATE VIEW gold.fact_sales
 AS
     SELECT
@@ -67,6 +100,3 @@ AS
         LEFT JOIN gold.dim_products AS pr
         ON sd.sls_prd_key = pr.product_number;
 GO
-
-SELECT DISTINCT category
-from gold.dim_products;
